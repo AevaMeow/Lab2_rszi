@@ -5,7 +5,7 @@
 #include <string>
 #include <climits>
 
-BoolEquation::BoolEquation(BoolInterval **cnf, BoolInterval *root, int cnfSize, int count, BBV mask, BranchingStrategy strategy)
+BoolEquation::BoolEquation(BoolInterval **cnf, BoolInterval *root, int cnfSize, int count, BBV mask, std::shared_ptr<BranchingStrategy> strategy)
 {
     this->cnf = new BoolInterval*[cnfSize];
 
@@ -32,7 +32,12 @@ BoolEquation::BoolEquation(BoolEquation &equation)
 	this->cnfSize = equation.cnfSize;
 	this->count = equation.count;
 	this->mask = equation.mask;
-	this->forcedBranchColumn = equation.forcedBranchColumn;  // копируем выбор столбца
+	// Копируем стратегию в зависимости от её типа
+	if (auto colStrategy = dynamic_cast<strategiaColumn*>(equation.branchingStrategy.get())) {
+		this->branchingStrategy = std::make_shared<strategiaColumn>(*colStrategy);
+	} else if (auto rowStrategy = dynamic_cast<strategiaRow*>(equation.branchingStrategy.get())) {
+		this->branchingStrategy = std::make_shared<strategiaRow>(*rowStrategy);
+	}
 }
 
 
@@ -223,111 +228,13 @@ void BoolEquation::Simplify(int ixCol, char value)
 	mask.Set1(ixCol);
 }
 
-int BoolEquation::ChooseColForBranching()
-{
-	vector<int> indexes;
-	vector<int> values;
-	bool rezInit = false;
-
-	for (int i = 0; i < mask.getSize(); i++) {
-		if (mask[i] == 0) {
-			indexes.push_back(i);
-		}
-	}
-
-	for (int i = 0; i < cnfSize; i++) {
-		BoolInterval *interval = cnf[i];
-
-		if (interval != nullptr) {
-			if (!rezInit) {
-				for (int k = 0; k < indexes.size(); k++) {
-					if (interval->getValue(indexes.at(k)) == '-') {
-						values.push_back(1);
-					} else {
-						values.push_back(0);
-					}
-				}
-
-				rezInit = true;
-			} else {
-				for (int k = 0; k < indexes.size(); k++) {
-					if (interval->getValue(indexes.at(k)) == '-') {
-						//int val = values.at(k) + (interval->getValue(indexes.at(k)) - '0');
-						values.at(k)++;
-					}
-				}
-			}
-		}
-	}
-
-	int minElementIndex = std::min_element(values.begin(), values.end()) - values.begin();
-
-	return indexes.at(minElementIndex);
-}
-
-int BoolEquation::ChooseRowForBranching()
-{
-    vector<int> nonEmptyRows;
-    vector<int> rowWeights;
-
-    // Собираем непустые строки (интервалы)
-    for (int i = 0; i < cnfSize; i++) {
-        if (cnf[i] != nullptr) {
-            nonEmptyRows.push_back(i);
-            
-            // Вычисляем вес строки (количество незамаскированных переменных)
-            int weight = 0;
-            for (int j = 0; j < mask.getSize(); j++) {
-                if (mask[j] == 0 && cnf[i]->getValue(j) != '-') {
-                    weight++;
-                }
-            }
-            rowWeights.push_back(weight);
-        }
-    }
-    
-    // Если нет строк, возвращаем -1 (ошибка)
-    if (nonEmptyRows.empty()) {
-        return -1;
-    }
-    
-    // Выбираем строку с минимальным весом (но не нулевым)
-    int minIndex = 0;
-    int minWeight = INT_MAX;
-    
-    for (size_t i = 0; i < rowWeights.size(); i++) {
-        if (rowWeights[i] > 0 && rowWeights[i] < minWeight) {
-            minWeight = rowWeights[i];
-            minIndex = i;
-        }
-    }
-    
-    // Для выбранной строки ищем индекс переменной (столбец) для ветвления
-    int rowIndex = nonEmptyRows[minIndex];
-    
-    // Выбираем первый незамаскированный столбец в этой строке
-    for (int j = 0; j < mask.getSize(); j++) {
-        if (mask[j] == 0 && cnf[rowIndex]->getValue(j) != '-') {
-            return j;
-        }
-    }
-    
-    // Если не нашли подходящий столбец, вернем результат обычной стратегии
-    return ChooseColForBranching();
-}
-
 int BoolEquation::ChooseBranchingIndex()
 {
-    switch (branchingStrategy) {
-        case ROW_BRANCHING:
-            return ChooseRowForBranching();
-        case COLUMN_BRANCHING:
-        default:
-            return ChooseColForBranching();
-    }
+    // Используем выбранную стратегию для определения индекса ветвления
+	return branchingStrategy->chooseBranchingIndex(cnf, cnfSize, mask);
 }
 
-void BoolEquation::SetBranchingStrategy(BranchingStrategy strategy)
+void BoolEquation::SetBranchingStrategy(std::shared_ptr<BranchingStrategy> strategy)
 {
     this->branchingStrategy = strategy;
 }

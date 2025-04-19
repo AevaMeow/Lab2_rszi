@@ -4,6 +4,7 @@
 #include <string>
 #include <cstring>
 #include <stack>
+#include <memory>
 #include <algorithm>
 #include <chrono> 
 #include "NodeBoolTree.h"
@@ -58,7 +59,7 @@ std::string trim(const std::string& str) {
 // Вспомогательные функции для работы с пользовательскими аллокаторами
 #ifdef USE_CUSTOM_ALLOCATOR
 // Специализированные функции для разных типов классов с соответствующими аллокаторами
-BoolEquation* allocateEquation(BoolInterval** cnf, BoolInterval* root, int cnfSize, int count, BBV mask, BranchingStrategy strategy) {
+BoolEquation* allocateEquation(BoolInterval** cnf, BoolInterval* root, int cnfSize, int count, BBV mask, std::shared_ptr<BranchingStrategy> strategy) {
     void* memory = equationAllocator.Allocate(sizeof(BoolEquation));
     return new(memory) BoolEquation(cnf, root, cnfSize, count, mask, strategy);
 }
@@ -128,7 +129,7 @@ int main(int argc, char *argv[])
     std::string filepath;
     
     // Настройка стратегии ветвления (по умолчанию - по столбцам)
-    BranchingStrategy strategy = COLUMN_BRANCHING;
+    std::shared_ptr<BranchingStrategy> strategy = std::make_shared<strategiaColumn>();
     
     // Разбор аргументов командной строки
     if (argc > 1) {
@@ -137,10 +138,10 @@ int main(int argc, char *argv[])
         if (argc > 2) {
             std::string strategyArg = argv[2];
             if (strategyArg == "row") {
-                strategy = ROW_BRANCHING;
+                strategy = std::make_shared<strategiaRow>();
                 std::cout << "Используется стратегия ветвления по строкам\n";
             } else {
-                strategy = COLUMN_BRANCHING;
+                strategy = std::make_shared<strategiaColumn>();
                 std::cout << "Используется стратегия ветвления по столбцам\n";
             }
         }

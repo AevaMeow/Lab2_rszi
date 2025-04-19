@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(SAT_DPLL)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 # Опция для выбора типа аллокации
 option(USE_CUSTOM_ALLOCATOR "Использовать пользовательский аллокатор" OFF)
@@ -48,6 +48,7 @@ set(COMMON_SOURCES
     "src/BBV.cpp"
     "src/boolequation.cpp"
     "src/boolinterval.cpp"
+    "src/strategia.cpp"
     "Allocator/Allocator.cpp"
 )
 
