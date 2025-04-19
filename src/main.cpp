@@ -5,7 +5,7 @@
 #include <cstring>
 #include <stack>
 #include <algorithm>
-#include <chrono> // Для измерения времени
+#include <chrono> 
 #include "NodeBoolTree.h"
 #include "boolinterval.h"
 #include "boolequation.h"
